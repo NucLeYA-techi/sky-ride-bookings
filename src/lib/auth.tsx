@@ -38,7 +38,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUp = async (email: string, password: string, name: string) => {
     const redirectUrl = `${window.location.origin}/dashboard`;
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -46,7 +46,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         data: { display_name: name },
       },
     });
-    return { error };
+    if (error) return { error };
+    // If email confirmation is disabled, session is returned directly.
+    // Otherwise, attempt immediate password sign-in (works only if confirm email is OFF in Supabase).
+    if (!data.session) {
+      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+      if (signInError) {
+        return {
+          error: new Error(
+            "Account created. Please disable 'Confirm email' in Supabase Auth settings, or check your inbox to confirm before signing in."
+          ),
+        };
+      }
+    }
+    return { error: null };
   };
 
   const signIn = async (email: string, password: string) => {
